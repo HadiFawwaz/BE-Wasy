@@ -1,0 +1,906 @@
+﻿<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laundry POS - Transaksi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+<script id="browser-logger-active">
+(function() {
+    const ENDPOINT = 'http://127.0.0.1:8000/_boost/browser-logs';
+    const logQueue = [];
+    let flushTimeout = null;
+
+    console.log('🔍 Browser logger active (MCP server detected). Posting to: ' + ENDPOINT);
+
+    // Store original console methods
+    const originalConsole = {
+        log: console.log,
+        info: console.info,
+        error: console.error,
+        warn: console.warn,
+        table: console.table
+    };
+
+    // Helper to safely stringify values
+    function safeStringify(obj) {
+        const seen = new WeakSet();
+        return JSON.stringify(obj, (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+                if (seen.has(value)) return '[Circular]';
+                seen.add(value);
+            }
+            if (value instanceof Error) {
+                return {
+                    name: value.name,
+                    message: value.message,
+                    stack: value.stack
+                };
+            }
+            return value;
+        });
+    }
+
+    // Batch and send logs
+    function flushLogs() {
+        if (logQueue.length === 0) return;
+
+        const batch = logQueue.splice(0, logQueue.length);
+
+        fetch(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ logs: batch })
+        }).catch(err => {
+            // Silently fail to avoid infinite loops
+            originalConsole.error('Failed to send logs:', err);
+        });
+    }
+
+    // Debounced flush (100ms)
+    function scheduleFlush() {
+        if (flushTimeout) clearTimeout(flushTimeout);
+        flushTimeout = setTimeout(flushLogs, 100);
+    }
+
+    // Intercept console methods
+    ['log', 'info', 'error', 'warn', 'table'].forEach(method => {
+        console[method] = function(...args) {
+            // Call original method
+            originalConsole[method].apply(console, args);
+
+            // Capture log data
+            try {
+                logQueue.push({
+                    type: method,
+                    timestamp: new Date().toISOString(),
+                    data: args.map(arg => {
+                        try {
+                            return typeof arg === 'object' ? JSON.parse(safeStringify(arg)) : arg;
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }),
+                    url: window.location.href,
+                    userAgent: navigator.userAgent
+                });
+
+                scheduleFlush();
+            } catch (e) {
+                // Fail silently
+            }
+        };
+    });
+
+    // Global error handlers for uncaught errors
+    const originalOnError = window.onerror;
+    window.onerror = function boostErrorHandler(errorMsg, url, lineNumber, colNumber, error) {
+        try {
+            logQueue.push({
+                type: 'uncaught_error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: errorMsg,
+                    filename: url,
+                    lineno: lineNumber,
+                    colno: colNumber,
+                    error: error ? {
+                        name: error.name,
+                        message: error.message,
+                        stack: error.stack
+                    } : null
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Call original handler if it exists
+        if (originalOnError && typeof originalOnError === 'function') {
+            return originalOnError(errorMsg, url, lineNumber, colNumber, error);
+        }
+
+        // Let the error continue to propagate
+        return false;
+    }
+    window.addEventListener('error', (event) => {
+        try {
+            logQueue.push({
+                type: 'window_error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: event.message,
+                    filename: event.filename,
+                    lineno: event.lineno,
+                    colno: event.colno,
+                    error: event.error ? {
+                        name: event.error.name,
+                        message: event.error.message,
+                        stack: event.error.stack
+                    } : null
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Let the error continue to propagate
+        return false;
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        try {
+            logQueue.push({
+                type: 'error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: 'Unhandled Promise Rejection',
+                    reason: event.reason instanceof Error ? {
+                        name: event.reason.name,
+                        message: event.reason.message,
+                        stack: event.reason.stack
+                    } : event.reason
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Let the rejection continue to propagate
+        return false;
+    });
+
+    // Flush on page unload
+    window.addEventListener('beforeunload', () => {
+        if (logQueue.length > 0) {
+            navigator.sendBeacon(ENDPOINT, JSON.stringify({ logs: logQueue }));
+        }
+    });
+})();
+</script>
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen bg-gray-100">
+        <div class="w-64 bg-white shadow-lg">
+            <div class="flex items-center justify-center h-16 bg-blue-600 text-white font-bold text-xl">
+                Laundry POS
+            </div>
+
+            <nav class="mt-6 space-y-2 px-4">
+                <a href="http://127.0.0.1:8000/dashboard" class="flex items-center px-4 py-3 rounded-lg transition text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                    <span>Dashboard</span>
+                </a>
+                <a href="http://127.0.0.1:8000/transactions" class="flex items-center px-4 py-3 rounded-lg transition bg-blue-50 text-blue-700">
+                    <span>Transaksi</span>
+                </a>
+                <a href="http://127.0.0.1:8000/customers" class="flex items-center px-4 py-3 rounded-lg transition text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                    <span>Pelanggan</span>
+                </a>
+                <a href="http://127.0.0.1:8000/services" class="flex items-center px-4 py-3 rounded-lg transition text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                    <span>Layanan</span>
+                </a>
+                <a href="http://127.0.0.1:8000/reports" class="flex items-center px-4 py-3 rounded-lg transition text-gray-700 hover:bg-blue-50 hover:text-blue-600">
+                    <span>Laporan</span>
+                </a>
+
+                <hr class="my-4">
+
+                <button id="logoutBtn" class="w-full flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-red-50 hover:text-red-600 transition">
+                    <span>Logout</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-800">Manajemen Transaksi</h1>
+                <div class="flex items-center space-x-4">
+                    <span id="userName" class="text-gray-700">Admin</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-8">
+                <div class="bg-white rounded-xl shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Buat Transaksi Baru</h2>
+    <form id="transactionForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Pelanggan</label>
+            <select id="customerId" class="w-full border border-gray-300 rounded-lg px-3 py-2"></select>
+            <p data-error-for="customer_id" class="hidden text-sm text-red-600 mt-1"></p>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Layanan</label>
+            <select id="serviceId" class="w-full border border-gray-300 rounded-lg px-3 py-2"></select>
+            <p data-error-for="service_id" class="hidden text-sm text-red-600 mt-1"></p>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Berat</label>
+            <input id="weight" type="number" min="1" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Kg/Pcs">
+            <p data-error-for="weight" class="hidden text-sm text-red-600 mt-1"></p>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Harga per Unit</label>
+            <div id="serviceUnitPrice" class="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-gray-700">Rp 0</div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Metode Pembayaran</label>
+            <select id="paymentMethod" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                <option value="cash">cash</option>
+                <option value="transfer">transfer</option>
+            </select>
+            <p data-error-for="payment_method" class="hidden text-sm text-red-600 mt-1"></p>
+        </div>
+        <div id="proofWrapper" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Bukti Pembayaran</label>
+            <input id="paymentProof" type="file" accept="image/*" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+            <p data-error-for="payment_proof" class="hidden text-sm text-red-600 mt-1"></p>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Estimasi Total</label>
+            <div id="estimatedTotal" class="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-gray-700">Rp 0</div>
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+            <button class="bg-blue-600 text-white px-4 py-2 rounded-lg" type="submit">Simpan Transaksi</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-xl shadow overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-800 mb-3">Riwayat Transaksi</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input id="search" type="text" placeholder="Cari invoice/nama/no hp" class="border border-gray-300 rounded-lg px-3 py-2">
+            <select id="filterStatus" class="border border-gray-300 rounded-lg px-3 py-2">
+                <option value="">Semua Status</option>
+                <option value="antrian">antrian</option>
+                <option value="dicuci">dicuci</option>
+                <option value="disetrika">disetrika</option>
+                <option value="siap diambil">siap diambil</option>
+                <option value="diambil">diambil</option>
+            </select>
+            <input id="dateFrom" type="date" class="border border-gray-300 rounded-lg px-3 py-2">
+            <input id="dateTo" type="date" class="border border-gray-300 rounded-lg px-3 py-2">
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2 items-center">
+            <button id="applyFilter" class="bg-gray-800 text-white px-4 py-2 rounded-lg">Terapkan Filter</button>
+            <button id="autoRefreshBtn" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg">Auto-refresh: ON</button>
+            <span class="text-sm text-gray-500" id="transactionMeta"></span>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600">
+                <tr>
+                    <th class="px-6 py-3 text-left">Invoice</th>
+                    <th class="px-6 py-3 text-left">Pelanggan</th>
+                    <th class="px-6 py-3 text-left">Layanan</th>
+                    <th class="px-6 py-3 text-left">Total</th>
+                    <th class="px-6 py-3 text-left">Status</th>
+                    <th class="px-6 py-3 text-left">Bayar</th>
+                    <th class="px-6 py-3 text-left">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="transactionTableBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-100 flex items-center gap-2" id="transactionPagination"></div>
+</div>
+
+<script>
+    let serviceMap = {};
+    let transactionPage = 1;
+    let transactionLastPage = 1;
+    let autoRefreshEnabled = true;
+    let autoRefreshTimer = null;
+    let isLoadingTransactions = false;
+
+    function calculateEstimatedTotal() {
+        const serviceId = document.getElementById('serviceId').value;
+        const weight = Number(document.getElementById('weight').value || 0);
+        const price = serviceMap[serviceId]?.price || 0;
+        document.getElementById('serviceUnitPrice').textContent = window.formatCurrency(price);
+        const total = price * weight;
+        document.getElementById('estimatedTotal').textContent = window.formatCurrency(total);
+    }
+
+    function printReceipt(transaction) {
+        const printWindow = window.open('', '_blank', 'width=420,height=640');
+        if (!printWindow) {
+            showToast('Popup diblokir browser. Izinkan popup untuk cetak struk.', 'error');
+            return;
+        }
+
+        const html = `
+            <!DOCTYPE html>
+            <html lang="id">
+            <head>
+                <meta charset="UTF-8" />
+                <title>Struk ${transaction.invoice_code}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 16px; color: #111827; }
+                    h1 { margin: 0 0 12px; font-size: 18px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+                    td { padding: 6px 0; vertical-align: top; }
+                    .line { border-top: 1px dashed #9ca3af; margin: 12px 0; }
+                    .right { text-align: right; font-weight: 700; }
+                </style>
+            <script id="browser-logger-active">
+(function() {
+    const ENDPOINT = 'http://127.0.0.1:8000/_boost/browser-logs';
+    const logQueue = [];
+    let flushTimeout = null;
+
+    console.log('🔍 Browser logger active (MCP server detected). Posting to: ' + ENDPOINT);
+
+    // Store original console methods
+    const originalConsole = {
+        log: console.log,
+        info: console.info,
+        error: console.error,
+        warn: console.warn,
+        table: console.table
+    };
+
+    // Helper to safely stringify values
+    function safeStringify(obj) {
+        const seen = new WeakSet();
+        return JSON.stringify(obj, (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+                if (seen.has(value)) return '[Circular]';
+                seen.add(value);
+            }
+            if (value instanceof Error) {
+                return {
+                    name: value.name,
+                    message: value.message,
+                    stack: value.stack
+                };
+            }
+            return value;
+        });
+    }
+
+    // Batch and send logs
+    function flushLogs() {
+        if (logQueue.length === 0) return;
+
+        const batch = logQueue.splice(0, logQueue.length);
+
+        fetch(ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ logs: batch })
+        }).catch(err => {
+            // Silently fail to avoid infinite loops
+            originalConsole.error('Failed to send logs:', err);
+        });
+    }
+
+    // Debounced flush (100ms)
+    function scheduleFlush() {
+        if (flushTimeout) clearTimeout(flushTimeout);
+        flushTimeout = setTimeout(flushLogs, 100);
+    }
+
+    // Intercept console methods
+    ['log', 'info', 'error', 'warn', 'table'].forEach(method => {
+        console[method] = function(...args) {
+            // Call original method
+            originalConsole[method].apply(console, args);
+
+            // Capture log data
+            try {
+                logQueue.push({
+                    type: method,
+                    timestamp: new Date().toISOString(),
+                    data: args.map(arg => {
+                        try {
+                            return typeof arg === 'object' ? JSON.parse(safeStringify(arg)) : arg;
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }),
+                    url: window.location.href,
+                    userAgent: navigator.userAgent
+                });
+
+                scheduleFlush();
+            } catch (e) {
+                // Fail silently
+            }
+        };
+    });
+
+    // Global error handlers for uncaught errors
+    const originalOnError = window.onerror;
+    window.onerror = function boostErrorHandler(errorMsg, url, lineNumber, colNumber, error) {
+        try {
+            logQueue.push({
+                type: 'uncaught_error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: errorMsg,
+                    filename: url,
+                    lineno: lineNumber,
+                    colno: colNumber,
+                    error: error ? {
+                        name: error.name,
+                        message: error.message,
+                        stack: error.stack
+                    } : null
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Call original handler if it exists
+        if (originalOnError && typeof originalOnError === 'function') {
+            return originalOnError(errorMsg, url, lineNumber, colNumber, error);
+        }
+
+        // Let the error continue to propagate
+        return false;
+    }
+    window.addEventListener('error', (event) => {
+        try {
+            logQueue.push({
+                type: 'window_error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: event.message,
+                    filename: event.filename,
+                    lineno: event.lineno,
+                    colno: event.colno,
+                    error: event.error ? {
+                        name: event.error.name,
+                        message: event.error.message,
+                        stack: event.error.stack
+                    } : null
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Let the error continue to propagate
+        return false;
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        try {
+            logQueue.push({
+                type: 'error',
+                timestamp: new Date().toISOString(),
+                data: [{
+                    message: 'Unhandled Promise Rejection',
+                    reason: event.reason instanceof Error ? {
+                        name: event.reason.name,
+                        message: event.reason.message,
+                        stack: event.reason.stack
+                    } : event.reason
+                }],
+                url: window.location.href,
+                userAgent: navigator.userAgent
+            });
+
+            scheduleFlush();
+        } catch (e) {
+            // Fail silently
+        }
+
+        // Let the rejection continue to propagate
+        return false;
+    });
+
+    // Flush on page unload
+    window.addEventListener('beforeunload', () => {
+        if (logQueue.length > 0) {
+            navigator.sendBeacon(ENDPOINT, JSON.stringify({ logs: logQueue }));
+        }
+    });
+})();
+</script>
+</head>
+            <body>
+                <h1>Laundry POS</h1>
+                <div>Invoice: ${transaction.invoice_code}</div>
+                <div>Tanggal: ${new Date(transaction.created_at).toLocaleString('id-ID')}</div>
+                <div>Pelanggan: ${transaction.customer?.user?.name ?? '-'}</div>
+                <div class="line"></div>
+                <table>
+                    <tr><td>Layanan</td><td class="right">${transaction.service?.service_name ?? '-'}</td></tr>
+                    <tr><td>Metode Bayar</td><td class="right">${transaction.payment_method}</td></tr>
+                    <tr><td>Status Bayar</td><td class="right">${transaction.payment_status}</td></tr>
+                    <tr><td>Status Cucian</td><td class="right">${transaction.status}</td></tr>
+                    <tr><td>Total</td><td class="right">${window.formatCurrency(transaction.total_price)}</td></tr>
+                </table>
+                <div class="line"></div>
+                <div>Terima kasih telah menggunakan layanan kami.</div>
+            </body>
+            </html>
+        `;
+
+        printWindow.onload = function () {
+            printWindow.print();
+        };
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+    }
+
+    function renderTransactionPagination() {
+        const wrapper = document.getElementById('transactionPagination');
+        wrapper.innerHTML = '';
+        if (transactionLastPage <= 1) return;
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = 'Sebelumnya';
+        prevBtn.className = 'px-3 py-1 border rounded-lg text-sm';
+        prevBtn.disabled = transactionPage <= 1;
+        prevBtn.onclick = () => loadTransactions(transactionPage - 1);
+        wrapper.appendChild(prevBtn);
+
+        const info = document.createElement('span');
+        info.className = 'text-sm text-gray-600';
+        info.textContent = `Halaman ${transactionPage} / ${transactionLastPage}`;
+        wrapper.appendChild(info);
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Berikutnya';
+        nextBtn.className = 'px-3 py-1 border rounded-lg text-sm';
+        nextBtn.disabled = transactionPage >= transactionLastPage;
+        nextBtn.onclick = () => loadTransactions(transactionPage + 1);
+        wrapper.appendChild(nextBtn);
+    }
+
+    function startAutoRefresh() {
+        stopAutoRefresh();
+        autoRefreshTimer = setInterval(() => {
+            if (autoRefreshEnabled) {
+                loadTransactions(transactionPage, false);
+            }
+        }, 30000);
+    }
+
+    function stopAutoRefresh() {
+        if (autoRefreshTimer) {
+            clearInterval(autoRefreshTimer);
+            autoRefreshTimer = null;
+        }
+    }
+
+    async function loadMasterData() {
+        const [customerResponse, serviceResponse] = await Promise.all([
+            window.apiFetch('/api/customers?per_page=100'),
+            window.apiFetch('/api/services?per_page=100')
+        ]);
+
+        const customerSelect = document.getElementById('customerId');
+        customerSelect.innerHTML = customerResponse.data
+            .map((item) => `<option value="${item.id}">${item.user?.name ?? '-'} - ${item.phone}</option>`)
+            .join('');
+
+        const serviceSelect = document.getElementById('serviceId');
+        serviceSelect.innerHTML = serviceResponse.data
+            .map((item) => `<option value="${item.id}">${item.service_name} (${window.formatCurrency(item.price)}/${item.unit})</option>`)
+            .join('');
+
+        serviceMap = {};
+        serviceResponse.data.forEach((service) => {
+            serviceMap[String(service.id)] = service;
+        });
+        calculateEstimatedTotal();
+    }
+
+    async function loadTransactions(page = 1, showOverlay = true) {
+        if (isLoadingTransactions) return;
+        isLoadingTransactions = true;
+
+        if (showOverlay) toggleLoading(true);
+
+        try {
+            const params = new URLSearchParams({
+                per_page: '10',
+                page: String(page),
+                status: document.getElementById('filterStatus').value,
+                search: document.getElementById('search').value,
+                date_from: document.getElementById('dateFrom').value,
+                date_to: document.getElementById('dateTo').value
+            });
+
+            const response = await window.apiFetch(`/api/transactions?${params.toString()}`);
+            const tbody = document.getElementById('transactionTableBody');
+            tbody.innerHTML = '';
+
+            transactionPage = response.current_page;
+            transactionLastPage = response.last_page;
+            document.getElementById('transactionMeta').textContent = `Total ${response.total} transaksi`;
+            renderTransactionPagination();
+
+            if (!response.data.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-6 text-center text-gray-500">Belum ada transaksi.</td></tr>';
+                return;
+            }
+
+            response.data.forEach((transaction) => {
+                const encodedTransaction = encodeURIComponent(JSON.stringify(transaction));
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="px-6 py-4 font-medium text-gray-800">${transaction.invoice_code}</td>
+                        <td class="px-6 py-4">${transaction.customer?.user?.name ?? '-'}</td>
+                        <td class="px-6 py-4">${transaction.service?.service_name ?? '-'}</td>
+                        <td class="px-6 py-4">${window.formatCurrency(transaction.total_price)}</td>
+                        <td class="px-6 py-4">
+                            <select onchange="updateStatus(${transaction.id}, this.value)" class="border border-gray-300 rounded-lg px-2 py-1">
+                                ${['antrian', 'dicuci', 'disetrika', 'siap diambil', 'diambil'].map((status) => `
+                                    <option value="${status}" ${transaction.status === status ? 'selected' : ''}>${status}</option>
+                                `).join('')}
+                            </select>
+                        </td>
+                        <td class="px-6 py-4">${transaction.payment_method} (${transaction.payment_status})</td>
+                        <td class="px-6 py-4">
+                            <button class="text-blue-600 hover:text-blue-800" onclick="printReceipt(JSON.parse(decodeURIComponent('${encodedTransaction}')))">Cetak</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            isLoadingTransactions = false;
+            if (showOverlay) toggleLoading(false);
+        }
+    }
+
+    async function updateStatus(id, status) {
+        try {
+            const response = await window.apiFetch(`/api/transactions/${id}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ status })
+            });
+            showToast(response.message, 'success');
+        } catch (error) {
+            showToast(error.message, 'error');
+            await loadTransactions(transactionPage, false);
+        }
+    }
+
+    document.getElementById('paymentMethod').addEventListener('change', (event) => {
+        const wrapper = document.getElementById('proofWrapper');
+        if (event.target.value === 'transfer') wrapper.classList.remove('hidden');
+        else wrapper.classList.add('hidden');
+    });
+
+    document.getElementById('serviceId').addEventListener('change', calculateEstimatedTotal);
+    document.getElementById('weight').addEventListener('input', calculateEstimatedTotal);
+
+    document.getElementById('transactionForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        toggleLoading(true);
+        window.clearInlineErrors('transactionForm');
+
+        try {
+            const formData = new FormData();
+            formData.append('customer_id', document.getElementById('customerId').value);
+            formData.append('service_id', document.getElementById('serviceId').value);
+            formData.append('weight', document.getElementById('weight').value);
+            formData.append('payment_method', document.getElementById('paymentMethod').value);
+
+            const paymentProof = document.getElementById('paymentProof').files[0];
+            if (paymentProof) formData.append('payment_proof', paymentProof);
+
+            const response = await window.apiFetch('/api/transactions', {
+                method: 'POST',
+                body: formData
+            });
+
+            showToast(response.message, 'success');
+            document.getElementById('transactionForm').reset();
+            document.getElementById('proofWrapper').classList.add('hidden');
+            window.clearInlineErrors('transactionForm');
+            calculateEstimatedTotal();
+            await loadTransactions(1, false);
+        } catch (error) {
+            if (error.status === 422) {
+                window.applyInlineErrors('transactionForm', error.errors);
+            }
+            showToast(error.message, 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+
+    document.getElementById('applyFilter').addEventListener('click', () => loadTransactions(1));
+    document.getElementById('search').addEventListener('input', () => loadTransactions(1, false));
+    document.getElementById('autoRefreshBtn').addEventListener('click', () => {
+        autoRefreshEnabled = !autoRefreshEnabled;
+        document.getElementById('autoRefreshBtn').textContent = `Auto-refresh: ${autoRefreshEnabled ? 'ON' : 'OFF'}`;
+        document.getElementById('autoRefreshBtn').className = autoRefreshEnabled
+            ? 'bg-blue-100 text-blue-700 px-4 py-2 rounded-lg'
+            : 'bg-gray-100 text-gray-700 px-4 py-2 rounded-lg';
+    });
+
+    window.addEventListener('beforeunload', stopAutoRefresh);
+
+    (async function init() {
+        toggleLoading(true);
+        try {
+            await loadMasterData();
+            await loadTransactions(1, false);
+            startAutoRefresh();
+        } catch (error) {
+            showToast(error.message, 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    })();
+</script>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingSpinner" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 text-center">
+            <div class="animate-spin inline-flex items-center justify-center w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+            <p class="mt-4 text-gray-700">Memproses...</p>
+        </div>
+    </div>
+
+    <div id="toast" class="hidden fixed top-4 right-4 px-6 py-3 bg-white rounded-lg shadow-lg border-l-4 z-50 text-gray-700"></div>
+
+    <script>
+        const token = localStorage.getItem('auth_token');
+
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        window.toggleLoading = function(show) {
+            const spinner = document.getElementById('loadingSpinner');
+            if (show) {
+                spinner.classList.remove('hidden');
+                spinner.classList.add('flex');
+            } else {
+                spinner.classList.add('hidden');
+                spinner.classList.remove('flex');
+            }
+        };
+
+        window.showToast = function(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'fixed top-4 right-4 px-6 py-3 bg-white rounded-lg shadow-lg border-l-4 z-50 text-gray-700';
+
+            if (type === 'success') toast.classList.add('border-green-500');
+            if (type === 'error') toast.classList.add('border-red-500');
+            if (type === 'info') toast.classList.add('border-blue-500');
+
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        };
+
+        window.formatCurrency = function(value) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value || 0);
+        };
+
+        window.apiFetch = async function(url, options = {}) {
+            const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
+            if (!(options.body instanceof FormData)) {
+                headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+            }
+
+            const response = await fetch(url, { ...options, headers });
+            const data = await response.json().catch(() => ({}));
+
+            if (response.status === 401) {
+                localStorage.removeItem('auth_token');
+                window.location.href = '/login';
+                throw new Error('Sesi berakhir, silakan login ulang.');
+            }
+
+            if (!response.ok) {
+                const message = data.message || 'Permintaan gagal.';
+                const error = new Error(message);
+                error.status = response.status;
+                error.errors = data.errors || {};
+                throw error;
+            }
+
+            return data;
+        };
+
+        window.clearInlineErrors = function(formId) {
+            document.querySelectorAll(`#${formId} [data-error-for]`).forEach((item) => {
+                item.textContent = '';
+                item.classList.add('hidden');
+            });
+        };
+
+        window.applyInlineErrors = function(formId, errors = {}) {
+            Object.keys(errors).forEach((key) => {
+                const errorElement = document.querySelector(`#${formId} [data-error-for="${key}"]`);
+                if (errorElement) {
+                    errorElement.textContent = errors[key][0];
+                    errorElement.classList.remove('hidden');
+                }
+            });
+        };
+
+        async function loadProfile() {
+            try {
+                const profile = await window.apiFetch('/api/profile');
+                document.getElementById('userName').textContent = profile.user.name;
+
+                if (profile.user.role !== 'admin') {
+                    showToast('Akun ini bukan admin.', 'error');
+                    localStorage.removeItem('auth_token');
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            toggleLoading(true);
+            try {
+                await window.apiFetch('/api/logout', { method: 'POST' });
+            } catch (_) {
+                // Ignore logout API errors and clear local state anyway.
+            } finally {
+                localStorage.removeItem('auth_token');
+                toggleLoading(false);
+                window.location.href = '/login';
+            }
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>
+

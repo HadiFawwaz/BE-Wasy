@@ -1,0 +1,336 @@
+Sertifikasi
+Kompetensi
+XI RPL
+
+App Programming
+
+Membuat Laundry Point of Sales (POS)
+Ecosystem (Web, API, Mobile)
+
+SEMESTER GENAP
+TAHUN PELAJARAN 2025/2026
+Soal Ujian Sertifikasi Kompetensi
+
+Bidang Keahlian: Pengembangan Perangkat Lunak
+Projek: Laundry Point of Sales (POS) Ecosystem
+
+  I. Skenario
+
+         Project Brief: Laundry POS & Customer Tracking Tahap perencanaan dan
+         desain telah selesai. Anda sekarang berada di tahap Implementasi. Tugas Anda
+         adalah membangun sistem laundry yang saling terintegrasi melalui API.
+
+             1. Web Admin: Dashboard untuk petugas mengelola transaksi dan status
+                  cucian.
+
+             2. REST API: Backend Laravel sebagai jembatan data.
+             3. Mobile App: Aplikasi untuk pelanggan memantau status cucian mereka.
+
+  II. Alur Bisnis & Relasi Data (Business Flow)
+
+         Agar tidak rancu dalam implementasi, pahami alur kerja sistem berikut:
+
+             1. Master Data: Admin menyiapkan data services (daftar harga) dan data
+                  users dengan role 'customer'.
+
+             2. Registrasi Profil: Saat users dengan role 'customer' dibuat, sistem juga
+                  harus membuat data di tabel customers untuk menyimpan nomor HP
+                  dan alamat.
+
+             3. Proses Transaksi:
+                       Petugas Admin login ke Web Admin.
+                       Admin membuat transaksi di tabel transactions dengan memilih
+                           customer_id dan admin_id (petugas yang sedang login).
+                       Status awal transaksi otomatis menjadi 'antrian'.
+
+             4. Update Operasional: Admin mengubah status transaksi di Web secara
+                  berkala (Antrian -> Dicuci -> Disetrika -> Siap Diambil).
+
+             5. Monitoring Mobile: Pelanggan login ke Mobile App, sistem memanggil
+                  API untuk mengambil data dari tabel transactions yang memiliki
+                  customer_id sesuai user yang login. Pelanggan melihat perubahan
+                  status secara real-time.
+III. Spesifikasi Database (Final Blueprint)
+            1. Tabel users
+
+Field    Tipe Data                           Keterangan
+                                             Auto Increment
+id       BigInt (PK)                         Nama lengkap
+                                             Unique, untuk login
+name     Varchar (255)                       Hash password
+                                             ('admin', 'customer')
+email    Varchar (255)
+
+password Varchar (255)
+
+role     Enum
+
+2. Tabel services   Tipe Data                Keterangan
+      Field         BigInt (PK)              Auto Increment
+      id            Enum                     ('kiloan', 'satuan')
+      service_name  Decimal (10,2)           Harga per unit
+      price         Varchar (20)             Misal: Kg atau Pcs
+      unit
+
+3. Tabel customers
+
+Field               Tipe Data                Keterangan
+                                             Auto Increment
+id                  BigInt (PK)              Relasi ke users.id
+                                             Nomor WhatsApp aktif
+user_id             BigInt (FK)              Alamat pengiriman
+
+phone               Varchar (15)
+
+address             Text
+4. Tabel transactions
+
+Field                  Tipe Data    Keterangan
+
+id                     BigInt (PK)  Auto Increment
+
+invoice_code           Varchar (50) Unique (Misal: LND-001)
+
+admin_id               BigInt (FK)  Relasi ke users.id (Role
+                                    Admin)
+
+customer_id            BigInt (FK)  Relasi ke customers.id
+
+service_id             BigInt (FK)  Relasi ke services.id
+
+total_price            Decimal (12,2) Total biaya
+
+status                 Enum         ('antrian', 'dicuci', 'disetrika', 'siap
+                                    diambil', 'diambil')
+
+payment_method Enum                 ('cash', 'transfer')
+
+payment_status Enum                 ('pending', 'paid')
+
+payment_proof          Varchar (255) Path/URL Foto Bukti Transfer
+                                             (Nullable jika cash)
+
+paid_at                Timestamp    Waktu pembayaran dilakukan
+
+IV. Langkah Implementasi
+
+    1. Backend API (Laravel):
+              Buat Migration & Model sesuai spesifikasi.
+              Implementasi Login API dengan Sanctum.
+              Buat endpoint GET /api/status-laundry yang menampilkan
+                  transaksi milik customer yang sedang login.
+
+    2. Web Admin (Frontend Web):
+              Buat Form Transaksi (Pilih Customer, Pilih Layanan, Input Harga).
+              Buat fitur Update Status (Dropdown/Tombol) untuk mengubah tahapan
+                  cucian.
+
+    3. Mobile App (React Native/Flutter):
+              Halaman Login.
+              Halaman Dashboard: Menampilkan kartu (Card) status cucian yang
+                  diambil dari API.
+
+V. Langkah Kerja
+
+    1. Fondasi & Backend API
+
+         Analisis & Database
+
+              Instalasi Laravel terbaru.
+              Pembuatan Migration untuk tabel: users (admin & customer), services,
+
+                  customers, dan transactions.
+              Pembuatan Seeders untuk data awal (Services & 1 Admin).
+
+         Authentication API
+
+              Implementasi Laravel Sanctum.
+              Membuat API Login & Logout.
+              Membuat API Profile untuk mengambil data user yang sedang login.
+
+         Master Data API (CRUD)
+
+              Membuat API CRUD untuk services (Layanan Laundry).
+              Membuat API CRUD untuk customers (Pelanggan).
+              Implementasi Form Validation (Required, Unique, Numeric).
+
+         Transaction & Payment Logic (Backend)
+
+              Membuat API Create Transaction dengan input: customer_id,
+                  service_id, weight, payment_method.
+
+              Implementasi logika upload gambar untuk payment_proof
+                  menggunakan Laravel Storage.
+
+              Membuat API Update Status Cucian (Antrian -> Dicuci -> Selesai).
+
+         Reporting API
+
+              Membuat Endpoint API untuk Laporan Pendapatan: Menghitung total
+                  sum(total_price) dari transaksi berstatus paid.
+
+              Membuat Endpoint API untuk Statistik Laundry: Menghitung jumlah
+                  transaksi per hari/bulan.
+
+    2. Frontend Web & Mobile Integration
+Web Admin: UI Layout & Auth
+
+ Slicing UI Dashboard Admin (Tailwind/Bootstrap).                dibuat
+ Implementasi Login Web menggunakan API yang sudah
+
+    (Fetch/Axios).
+ Proteksi Route (Halaman Admin tidak bisa dibuka tanpa login).
+
+Web Admin: Pengelolaan Pelanggan & Layanan
+
+ Menampilkan data Pelanggan & Layanan dalam tabel.
+ Membuat Form Tambah/Edit dengan validasi error yang muncul di UI.
+
+Web Admin: Transaksi & Pembayaran (Fitur Utama)
+
+ Membuat form transaksi baru (Dropdown pilih pelanggan & layanan).
+ Menambahkan pilihan "Metode Pembayaran".
+ Logika Kondisional: Jika pilih 'Transfer', maka input File bukti bayar wajib
+
+    muncul. Jika 'Cash', input file disembunyikan.
+
+Web Admin: Dashboard & Laporan
+
+ Menampilkan Widget Ringkasan: "Total Laundry Masuk" dan "Total
+    Pendapatan" di halaman utama.
+
+ Membuat tabel riwayat transaksi lengkap dengan filter status.
+
+Mobile App: UI Dashboard & Tracking
+
+ Slicing UI Mobile (React Native/Flutter).
+ Implementasi Login Customer.
+ Menampilkan "List Cucian Saya" dalam bentuk Card yang menarik.
+
+Mobile App: Detail & Real-time Status
+
+ Menampilkan detail transaksi (Berat, Harga, Metode Bayar).
+ Menampilkan Progress Bar status cucian (Antrian -> Proses -> Siap
+
+    Ambil).
+
+Integrasi & Testing Massal
+
+ Testing alur dari Admin input data -> Customer cek di HP.
+ Memperbaiki bug pada upload gambar atau sinkronisasi data.
+
+Refinement
+              Menambahkan Loading Spinner pada setiap tombol.
+              Menambahkan Toast Notification (Pesan Sukses/Gagal yang estetik).
+              Pembersihan kode (Clean Code).
+
+         Finalisasi & Demo
+
+              Persiapan dokumentasi API (Postman Collection).
+              Presentasi hasil projek.
+
+    3. Fitur Rekomendasi (Poin Plus)
+
+         Untuk siswa memiliki nilai lebih di mata industri, tambahkan fitur opsional berikut:
+
+             1. Cetak Struk: Admin bisa klik tombol "Cetak" untuk menghasilkan tampilan
+                  nota/PDF sederhana.
+
+             2. Pencarian Cepat: Fitur search pelanggan berdasarkan Nama atau No HP
+                  di Web Admin menggunakan filter API.
+
+             3. Foto Kondisi Baju: Saat admin membuat transaksi, admin bisa upload 1
+                  foto kondisi baju saat masuk (untuk menghindari komplain).
+
+VI. Rubrik Penilaian
+
+    1. KOMPONEN DATABASE (BOBOT: 30%)
+
+No Komponen           Skor 1           Skor 3           Skor 4         Bobot
+           Penilaian
+
+1 Tabel Users Hanya Field tambahan Field lengkap (TTL, 10%
+
+(Profile)             field   ada, tipe data   Agama, dll), tipe data
+
+                      default. kurang tepat.   tepat.
+
+2 Tabel               Hardcode Tabel ada, harga Tabel rapi, harga      10%
+
+Services              d/Tabel pakai integer    pakai Decimal, ada
+
+(Layanan)             tidak ada. biasa.        status.
+
+3 Tabel               Alur tidak Relasi manual, Relasi foreignId, 10%
+
+Transactions tersimpa timestamp tidak status menggunakan
+
+                      n di DB. jelas.          Enum.
+2. KOMPONEN BACKEND & KEAMANAN (BOBOT: 30%)
+
+   No Komponen           Skor 1              Skor 3        Skor 4               Bobot
+             Penilaian
+
+1      Auth &            API publik Login jalan, token     Full Integration, 15%
+
+       Sanctum tanpa                     tidak diproteksi  Sanctum, &
+
+                         login.          middleware.       Middleware aktif.
+
+2      Logic &           Tidak ada Validasi ada, pesan Validasi kuat,           15%
+
+       Validation validasi               masih default Inggris. response JSON
+
+                         (Error 500).                      rapi & informatif.
+
+3. KOMPONEN UI/UX (BOBOT: 30%)
+
+   No Komponen           Skor 1              Skor 3        Skor 4               Bobot
+              Penilaian
+
+1      Kerapihan Berantakan, Tata letak jelas, Neat & Clean,                    15%
+
+       Tata Letak kontras buruk. margin belum spacing
+
+                                          konsisten.       konsisten, font
+
+                                                           nyaman.
+
+2      Interaksi         Tidak ada        Ada pesan        Memiliki Loading     15%
+                                          sukses,          Spinner & Toast
+       (Feedback) indikasi                tampilan tidak   Notification.
+                                          estetik.
+                         proses.
+
+4. KOMPONEN SOFT SKILLS (BOBOT: 15%)
+
+   No  Komponen                   Skor 1     Skor 3        Skor 4               Bobot
+
+       Penilaian
+
+1      Troubleshooting Menyerah Mandiri                    Debugging mandiri 5%
+
+                                 saat error. mencari       & mampu
+
+                                          solusi di        menjelaskan logika.
+
+                                          dokumentasi
+
+                                          .
+
+2      Workflow                  Kode     Kode cukup Menerapkan Clean 5%
+
+                                 sangat   rapi, variabel Code & variabel
+
+                                 berantakan kurang jelas. deskriptif.
+RUMUS PERHITUNGAN NILAI (WEIGHTED SCORE)
+Nilai akhir dihitung dengan menjumlahkan hasil bagi skor perolehan dengan skor
+maksimal (4), lalu dikalikan dengan bobot masing-masing komponen.
+
+    Simulasi Hasil:
+             1. Sempurna (Skor 4 semua): (4/4 x 100% ) = 100
+
+    Predikat Kelulusan
+              76 - 100: Kompeten
+              < 76: Belum Kompeten
+

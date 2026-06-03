@@ -1,0 +1,312 @@
+{
+    "info": {
+        "name": "Laundry POS API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"admin@laundry.com\",\n  \"password\": \"password\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost/api/login",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "login"]
+                        }
+                    }
+                },
+                {
+                    "name": "Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost/api/profile",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "profile"]
+                        }
+                    }
+                },
+                {
+                    "name": "Logout",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost/api/logout",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "logout"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin - Customers",
+            "item": [
+                {
+                    "name": "Get All Customers",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost/api/customers",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "customers"]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Customer",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"Budi Santoso\",\n  \"email\": \"budi@example.com\",\n  \"password\": \"password123\",\n  \"phone\": \"081234567890\",\n  \"address\": \"Jalan Merdeka No. 123, Jakarta\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost/api/customers",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "customers"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin - Services",
+            "item": [
+                {
+                    "name": "Get All Services",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost/api/services",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "services"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin - Transactions",
+            "item": [
+                {
+                    "name": "Get All Transactions",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost/api/transactions",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "transactions"]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Transaction (Cash)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"customer_id\": 1,\n  \"service_id\": 1,\n  \"weight\": 5,\n  \"payment_method\": \"cash\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost/api/transactions",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "transactions"]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Transaction (Transfer with Proof)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "customer_id",
+                                    "value": "1",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "service_id",
+                                    "value": "1",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "weight",
+                                    "value": "3",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "payment_method",
+                                    "value": "transfer",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "payment_proof",
+                                    "type": "file",
+                                    "src": "/path/to/payment-proof.jpg"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "http://localhost/api/transactions",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "transactions"]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Transaction Status",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"dicuci\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost/api/transactions/1/status",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "transactions", "1", "status"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Customer - Tracking",
+            "item": [
+                {
+                    "name": "Get My Laundry Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer CUSTOMER_TOKEN_HERE"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost/api/status-laundry",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "status-laundry"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin - Reports",
+            "item": [
+                {
+                    "name": "Get Statistics",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer YOUR_TOKEN_HERE"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost/api/reports/stats",
+                            "protocol": "http",
+                            "host": ["localhost"],
+                            "path": ["api", "reports", "stats"]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
