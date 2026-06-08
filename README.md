@@ -1,58 +1,131 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+## Laporan
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Endpoint laporan digunakan untuk mengambil data statistik transaksi dan pendapatan.
 
-## About Laravel
+### Query Laporan
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```txt
+GET /api/reports/stats?month=6&year=2026&date=2026-06-02
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Parameter:
 
-## Contributing
+| Parameter | Keterangan |
+| --- | --- |
+| `month` | Bulan laporan, contoh `6` untuk Juni |
+| `year` | Tahun laporan, contoh `2026` |
+| `date` | Tanggal aktif untuk mode harian |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Response laporan berisi:
 
-## Code of Conduct
+| Field | Keterangan |
+| --- | --- |
+| `summary` | Ringkasan global transaksi |
+| `period_summary` | Ringkasan berdasarkan bulan dan tahun |
+| `selected_day_summary` | Ringkasan tanggal yang dipilih |
+| `transactions_by_week` | Data transaksi 14 hari terakhir |
+| `transactions_by_day` | Data transaksi per hari dalam bulan |
+| `transactions_by_hour` | Data transaksi per jam pada tanggal aktif |
+| `transactions_by_month` | Data transaksi per bulan dalam tahun |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Database
 
-## Security Vulnerabilities
+Tabel utama:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Tabel | Fungsi |
+| --- | --- |
+| `users` | Menyimpan akun admin dan customer |
+| `customers` | Menyimpan data profil customer |
+| `services` | Menyimpan layanan laundry |
+| `transactions` | Menyimpan transaksi laundry |
+| `transaction_items` | Menyimpan item layanan dalam transaksi |
+| `personal_access_tokens` | Menyimpan token autentikasi Sanctum |
 
-## License
+Relasi utama:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+- User dengan role `customer` memiliki satu customer profile.
+- Customer dapat memiliki banyak transaksi.
+- Service dapat digunakan di banyak transaksi.
+- Transaction memiliki admin, customer, dan service utama.
+- Transaction dapat memiliki banyak transaction items.
+
+## Setup Project
+
+Jalankan perintah berikut:
+
+```bash
+composer install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed --class=ReportDemoSeeder
+php artisan storage:link
+php artisan serve
+```
+
+Jika ingin menjalankan setup default dari Composer:
+
+```bash
+composer run setup
+```
+
+## Akun Demo
+
+Seeder membuat akun admin:
+
+| Email | Password | Role |
+| --- | --- | --- |
+| `admin@laundry.com` | `password` | `admin` |
+
+Seeder juga membuat beberapa akun customer demo dengan password:
+
+```txt
+password
+```
+
+
+## File Upload
+
+Upload disimpan di storage public.
+
+Jenis upload:
+
+- Bukti pembayaran transfer
+- Foto kondisi baju
+
+Agar file bisa diakses dari browser, jalankan:
+
+```bash
+php artisan storage:link
+```
+
+File dapat diakses melalui path:
+
+```txt
+/storage/...
+```
+
+
+## Status Data
+
+Status cucian:
+
+- `antrian`
+- `dicuci`
+- `disetrika`
+- `siap diambil`
+- `diambil`
+
+Status pembayaran:
+
+- `pending`
+- `paid`
+
+Metode pembayaran:
+
+- `cash`
+- `transfer`
+
+## Summary
+
+BE Wasy adalah sistem backend dan web admin untuk operasional laundry. Sistem ini membantu admin mengelola layanan, pelanggan, transaksi, status cucian, pembayaran, upload bukti pembayaran, upload foto kondisi baju, serta laporan pendapatan. Customer dapat login dan mengecek status cucian miliknya sendiri. Aplikasi ini sudah menggunakan Laravel Sanctum, role-based access, validasi request, seed data demo, dan testing menggunakan Pest PHP.
