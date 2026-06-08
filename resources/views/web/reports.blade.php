@@ -76,7 +76,7 @@
     <div class="grid grid-cols-1 gap-6">
         <div class="bg-white rounded-[28px] border border-[#D7F3F7] shadow-[var(--wt-card-shadow)] overflow-hidden flex flex-col">
             <div class="px-6 py-5 border-b border-[#D7F3F7]">
-                <h3 class="text-lg font-bold text-[#0A192F]">Statistik Harian</h3>
+                <h3 id="dailyChartTitle" class="text-lg font-bold text-[#0A192F]">Statistik Harian</h3>
                 <p id="dailyChartDescription" class="mt-1 text-sm text-[#496173]">Tren pendapatan & transaksi per hari di bulan ini.</p>
             </div>
             <div class="p-5 flex-1 relative min-h-[300px]">
@@ -345,6 +345,7 @@
             const periodSummary = report?.period_summary ?? globalSummary;
             const selectedDaySummary = report?.selected_day_summary ?? {};
             const transactionsByDay = report?.transactions_by_day ?? [];
+            const transactionsByHour = report?.transactions_by_hour ?? [];
             const transactionsByMonth = report?.transactions_by_month ?? [];
             const activeSummary = periodMode === 'daily' ? selectedDaySummary : periodSummary;
 
@@ -353,16 +354,22 @@
             }
             document.getElementById('totalTransactions').textContent = activeSummary.total_transactions || 0;
             document.getElementById('transactionsToday').textContent = selectedDaySummary.total_transactions ?? globalSummary.transactions_today ?? 0;
+            document.getElementById('dailyChartTitle').textContent = periodMode === 'daily'
+                ? 'Statistik Per Jam'
+                : 'Statistik Harian';
             document.getElementById('dailyChartDescription').textContent = periodMode === 'daily'
-                ? `Tanggal aktif: ${formatDateLabel(selectedDate)}. Grafik tetap menampilkan semua hari pada bulan tersebut.`
+                ? `Tanggal aktif: ${formatDateLabel(selectedDate)}. Grafik menampilkan transaksi per jam pada hari itu.`
                 : 'Tren pendapatan & transaksi per hari di bulan ini.';
 
-            const dailyLabels = transactionsByDay.map(item => {
+            const dailyChartItems = periodMode === 'daily' ? transactionsByHour : transactionsByDay;
+            const dailyLabels = dailyChartItems.map(item => {
+                if (periodMode === 'daily') return item.label ?? `${item.hour}:00`;
+
                 const dateParts = item.date.split('-');
                 return dateParts.length === 3 ? dateParts[2] : item.date;
             });
-            const dailyIncome = transactionsByDay.map(item => item.paid_income);
-            const dailyTx = transactionsByDay.map(item => item.total_transactions);
+            const dailyIncome = dailyChartItems.map(item => item.paid_income);
+            const dailyTx = dailyChartItems.map(item => item.total_transactions);
 
             if (dailyChartInstance) dailyChartInstance.destroy();
             const ctxDaily = document.getElementById('dailyChart').getContext('2d');

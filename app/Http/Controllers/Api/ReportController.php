@@ -58,6 +58,26 @@ class ReportController extends Controller
             fn (Transaction $transaction) => $transaction->created_at->toDateString() === $selectedDate->toDateString()
         );
 
+        $hourlyGrouped = $selectedDayTransactions->groupBy(
+            fn (Transaction $transaction) => $transaction->created_at->format('H')
+        );
+
+        $transactionsByHour = collect(range(0, 23))
+            ->map(function (int $hour) use ($hourlyGrouped) {
+                $key = str_pad((string) $hour, 2, '0', STR_PAD_LEFT);
+                $hourItems = $hourlyGrouped->get($key, collect());
+
+                return [
+                    'hour' => $key,
+                    'label' => "{$key}:00",
+                    'total_transactions' => $hourItems->count(),
+                    'paid_income' => (float) $hourItems
+                        ->where('payment_status', 'paid')
+                        ->sum('total_price'),
+                ];
+            })
+            ->values();
+
         $periodPaidIncome = (float) $monthlyTransactions
             ->where('payment_status', 'paid')
             ->sum('total_price');
@@ -132,6 +152,7 @@ class ReportController extends Controller
             ],
             'transactions_by_week' => $transactionsByRecentDays,
             'transactions_by_day' => $transactionsByDay,
+            'transactions_by_hour' => $transactionsByHour,
             'transactions_by_month' => $transactionsByMonth,
         ]);
     }

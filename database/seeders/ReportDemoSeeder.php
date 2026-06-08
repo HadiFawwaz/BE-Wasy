@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\Transaction;
 use App\Models\User;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -62,28 +63,26 @@ class ReportDemoSeeder extends Seeder
         })->values();
 
         $statusSequence = ['antrian', 'dicuci', 'disetrika', 'siap diambil', 'diambil'];
-        $monthlyTransactionCounts = [14, 18, 13, 21, 16, 19, 15, 22, 17, 20, 14, 18];
         $reportYear = Carbon::today()->year;
-        $invoiceNumber = 1;
 
-        foreach ($monthlyTransactionCounts as $monthIndex => $count) {
-            $month = $monthIndex + 1;
-            $monthStart = Carbon::create($reportYear, $month, 1);
-            $daysInMonth = $monthStart->daysInMonth;
+        foreach (CarbonPeriod::create(
+            Carbon::create($reportYear, 1, 1),
+            Carbon::create($reportYear, 12, 31),
+        ) as $date) {
+            $transactionCount = 2 + (($date->dayOfYear + $date->month) % 3);
 
-            for ($index = 0; $index < $count; $index++) {
-                $service = $services[($month + $index) % $services->count()];
-                $customer = $customers[($month + $index) % $customers->count()];
+            for ($index = 0; $index < $transactionCount; $index++) {
+                $service = $services[($date->month + $date->day + $index) % $services->count()];
+                $customer = $customers[($date->dayOfYear + $index) % $customers->count()];
                 $quantity = $service->unit === 'Pcs'
                     ? (($index % 3) + 1)
-                    : (1.5 + (($month + $index) % 6) * 0.5);
-                $paymentStatus = ($month + $index) % 4 === 0 ? 'pending' : 'paid';
-                $day = (($index * 2) % $daysInMonth) + 1;
-                $createdAt = $monthStart->copy()->day($day)->setTime(8 + ($index % 10), ($index * 13) % 60);
+                    : (1.5 + (($date->day + $index) % 6) * 0.5);
+                $paymentStatus = $index === 0 || ($date->day + $index) % 4 !== 0 ? 'paid' : 'pending';
+                $createdAt = $date->copy()->setTime(8 + ($index * 3), ($date->day + $index * 11) % 60);
 
-                Transaction::updateOrCreate(
+                $transaction = Transaction::updateOrCreate(
                     [
-                        'invoice_code' => 'LND-RPT-' . $createdAt->format('Ym') . '-' . str_pad((string) $invoiceNumber, 4, '0', STR_PAD_LEFT),
+                        'invoice_code' => 'LND-RPT-' . $createdAt->format('Ymd') . '-' . str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT),
                     ],
                     [
                         'admin_id' => $admin->id,
@@ -91,18 +90,19 @@ class ReportDemoSeeder extends Seeder
                         'service_id' => $service->id,
                         'weight' => $quantity,
                         'total_price' => $service->price * $quantity,
-                        'status' => $statusSequence[($month + $index) % count($statusSequence)],
-                        'payment_method' => ($month + $index) % 2 === 0 ? 'cash' : 'transfer',
+                        'status' => $statusSequence[($date->month + $index) % count($statusSequence)],
+                        'payment_method' => ($date->month + $index) % 2 === 0 ? 'cash' : 'transfer',
                         'payment_status' => $paymentStatus,
                         'payment_proof' => null,
                         'condition_photo' => null,
                         'paid_at' => $paymentStatus === 'paid' ? $createdAt->copy()->addMinutes(18) : null,
-                        'created_at' => $createdAt,
-                        'updated_at' => $createdAt,
                     ]
                 );
 
-                $invoiceNumber++;
+                $transaction->forceFill([
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                ])->save();
             }
         }
     }

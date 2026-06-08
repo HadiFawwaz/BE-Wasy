@@ -218,7 +218,7 @@ it('supports transaction filters and report statistics', function () {
 
     Storage::disk('public')->assertExists($createdTransaction->condition_photo);
 
-    Transaction::create([
+    $pendingTransaction = Transaction::create([
         'invoice_code' => 'LND-INV-001',
         'admin_id' => $admin->id,
         'customer_id' => $customer->id,
@@ -229,8 +229,11 @@ it('supports transaction filters and report statistics', function () {
         'payment_method' => 'cash',
         'payment_status' => 'pending',
     ]);
+    $pendingTransaction->created_at = now()->setTime(10, 30);
+    $pendingTransaction->updated_at = now()->setTime(10, 30);
+    $pendingTransaction->save();
 
-    Transaction::create([
+    $paidTransaction = Transaction::create([
         'invoice_code' => 'LND-INV-002',
         'admin_id' => $admin->id,
         'customer_id' => $customer->id,
@@ -242,6 +245,9 @@ it('supports transaction filters and report statistics', function () {
         'payment_status' => 'paid',
         'paid_at' => now(),
     ]);
+    $paidTransaction->created_at = now()->setTime(11, 15);
+    $paidTransaction->updated_at = now()->setTime(11, 15);
+    $paidTransaction->save();
 
     $this->getJson('/api/transactions?status=dicuci&search=LND-INV-002&per_page=5')
         ->assertOk()
@@ -249,14 +255,19 @@ it('supports transaction filters and report statistics', function () {
         ->assertJsonPath('data.0.weight', '3.00')
         ->assertJsonPath('data.0.status', 'dicuci');
 
-    $this->getJson('/api/reports/stats?month=' . now()->month . '&year=' . now()->year)
+    $this->getJson('/api/reports/stats?month=' . now()->month . '&year=' . now()->year . '&date=' . now()->toDateString())
         ->assertOk()
         ->assertJsonStructure([
             'summary' => ['total_income', 'transactions_today', 'total_transactions'],
             'filters' => ['month', 'year'],
             'transactions_by_day',
+            'transactions_by_hour',
             'transactions_by_month',
-        ]);
+        ])
+        ->assertJsonPath('transactions_by_hour.11.hour', '11')
+        ->assertJsonPath('transactions_by_hour.11.label', '11:00')
+        ->assertJsonPath('transactions_by_hour.11.total_transactions', 1)
+        ->assertJsonPath('transactions_by_hour.11.paid_income', 21000);
 
     Sanctum::actingAs($customerUser);
 
